@@ -6,13 +6,15 @@ from playwright.sync_api import sync_playwright
 import logging
 import subprocess
 import sys
+import os
 
 logger = logging.getLogger(__name__)
 
 
 class Downloader:
-    def __init__(self, url):
+    def __init__(self, url, download_dir=None):
         self.url = url
+        self.download_dir = download_dir
         self.supported_websites = [
             "ivysilani",
             "youtube",
@@ -98,8 +100,11 @@ class Downloader:
         else:
             video_url = self.url
 
+        if not self.download_dir:
+            self.download_dir = os.getcwd()
+
         if video_url:
-            ytdl_opts = {}
+            ytdl_opts = {"outtmpl": f"{self.download_dir}/%(title)s.%(ext)s"}
             with YoutubeDL(ytdl_opts) as ydl:
                 ydl.download(video_url)
         else:
