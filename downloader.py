@@ -5,6 +5,7 @@ from playwright.sync_api import sync_playwright
 
 import json
 import logging
+import subprocess
 import sys
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,26 @@ class Downloader:
         ]
         self.website = self.resolve_website()
         self.debug_info_file = "./output/info.json"
+
+        self.ensure_playwright_firefox_is_installed()
+
+    def ensure_playwright_firefox_is_installed(self):
+        try:
+            with sync_playwright() as p:
+                browser = p.firefox.launch(headless=True)
+                browser.close()
+        except Exception:
+            logging.info("Playwright Firefox ins't installed, installing...")
+            self.install_playwright_firefox()
+
+    def install_playwright_firefox(self):
+        try:
+            subprocess.run([
+                sys.executable, "-m", "playwright", "install", "firefox",
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+                print(f"Failed to install Firefox: {e}")
+                return False
 
     def resolve_website(self):
         if "ceskatelevize.cz" in self.url:
@@ -35,30 +56,24 @@ class Downloader:
             browser = p.firefox.launch(headless=False)  # Headless blocks playback!
             context = browser.new_context()
             page = context.new_page()
-
             def log_request(req):
                 if ".mpd" in req.url:
                     logger.debug("Found .mpd URL:", req.url)
                     video_urls.append(req.url)
-
             page.on("request", log_request)
-
             # Go to the page
             page.goto(self.url)
-
             # Wait for play button to load and click it
             page.wait_for_selector('[data-testid="PlayIcon"]', timeout=10000)
             page.click('[data-testid="PlayIcon"]')
-
             # Wait longer for manifest to load
             page.wait_for_timeout(20000)
-
             if not video_urls:
                 logger.debug(
                     "No .mpd found. Try increasing wait time or checking for .m3u8"
                 )
-
             browser.close()
+
 
             # The first url is an advertisement video
             try:
@@ -74,13 +89,17 @@ class Downloader:
         else:
             video_url = self.url
 
-        ytdl_opts = {}
-        with YoutubeDL(ytdl_opts) as ydl:
-            ydl.download(video_url)
+        if video_url:
+            ytdl_opts = {}
+            with YoutubeDL(ytdl_opts) as ydl:
+                ydl.download(video_url)
+        else:
+            logging.error(f"No download url, website: {self.website}")
 
 
 downloader = Downloader(
-    "https://www.ceskatelevize.cz/porady/901363-chalupari/275320075140001/"
+    #"https://www.ceskatelevize.cz/porady/901363-chalupari/275320075140001/"
+    "https://www.youtube.com/watch?v=K0SGh7OtdO4"
 )
 downloader.download_video()
 
