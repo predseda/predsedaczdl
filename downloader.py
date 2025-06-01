@@ -34,12 +34,21 @@ class Downloader:
 
     def install_playwright_firefox(self):
         try:
-            subprocess.run([
-                sys.executable, "-m", "playwright", "install", "firefox",
-            ], check=True, capture_output=True, text=True)
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "playwright",
+                    "install",
+                    "firefox",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
         except subprocess.CalledProcessError as e:
-                print(f"Failed to install Firefox: {e}")
-                return False
+            print(f"Failed to install Firefox: {e}")
+            return False
 
     def resolve_website(self):
         if "ceskatelevize.cz" in self.url:
@@ -56,10 +65,12 @@ class Downloader:
             browser = p.firefox.launch(headless=False)  # Headless blocks playback!
             context = browser.new_context()
             page = context.new_page()
+
             def log_request(req):
                 if ".mpd" in req.url:
                     logger.debug("Found .mpd URL:", req.url)
                     video_urls.append(req.url)
+
             page.on("request", log_request)
             # Go to the page
             page.goto(self.url)
@@ -73,7 +84,6 @@ class Downloader:
                     "No .mpd found. Try increasing wait time or checking for .m3u8"
                 )
             browser.close()
-
 
             # The first url is an advertisement video
             try:
@@ -97,11 +107,11 @@ class Downloader:
             logging.error(f"No download url, website: {self.website}")
 
 
-downloader = Downloader(
-    #"https://www.ceskatelevize.cz/porady/901363-chalupari/275320075140001/"
-    "https://www.youtube.com/watch?v=K0SGh7OtdO4"
-)
-downloader.download_video()
+# downloader = Downloader(
+#    #"https://www.ceskatelevize.cz/porady/901363-chalupari/275320075140001/"
+#    "https://www.youtube.com/watch?v=K0SGh7OtdO4"
+# )
+# downloader.download_video()
 
 # ydl_opts = {
 #    "quiet": True,  # suppress download logs
