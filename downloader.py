@@ -3,6 +3,8 @@
 from yt_dlp import YoutubeDL
 from playwright.sync_api import sync_playwright
 
+from PySide6.QtCore import QObject, QThread, Signal
+
 import logging
 import subprocess
 import sys
@@ -11,8 +13,38 @@ import os
 logger = logging.getLogger(__name__)
 
 
-class Downloader:
+# Designed by Anthropic Claude AI
+class DownloadWorker(QObject):
+    progress_update = Signal(int, str)
+    status_update = Signal(str)
+    download_finished = Signal(str)
+    download_error = Signal(str)
+
+    def __init__(self, downloader):
+        super().__init__()
+        self.downloader = downloader
+
+    def run(self):
+        try:
+            self.downloader.download_video(
+                self.progress_update,
+                self.status_update,
+                self.download_finished,
+                self.download_error,
+            )
+        except Exception as e:
+            self.download_error.emit(f"Unexpected error: {str(e)}")
+
+
+class Downloader(QObject):
+    progress_update = Signal(int, str)
+    status_update = Signal(str)
+    download_finished = Signal(str)
+    download_error = Signal(str)
+
     def __init__(self, url, download_dir=None):
+        super().__init__()
+
         self.url = url
         self.download_dir = download_dir
         self.supported_websites = [
@@ -21,6 +53,8 @@ class Downloader:
         ]
         self.website = self.resolve_website()
         self.debug_info_file = "./output/info.json"
+        self.download_thread = None
+        self.worker = None
 
         self.ensure_playwright_firefox_is_installed()
 
@@ -94,9 +128,64 @@ class Downloader:
 
             return download_url
 
-    def download_video(self):
+    # # Designed by Anthropic Claude AI
+    def progress_hook(self, d):
+        if d["status"] == "downloading":
+            if "total_bytes" in d and d["total_bytes"]:
+                percentage = int((d["downloaded_bytes"] / d["total_bytes"]) * 100)
+            elif "total_bytes_estimate" in d and d["total_bytes_estimate"]:
+                percentage = int(
+                    (d["downloaded_bytes"] / d["total_bytes_estimate"]) * 100
+                )
+            else:
+                if "_percent_str" in d:
+                    percent_str = d["_percent_str"].strip()
+                    try:
+                        percentage = int(float(percent_str.replace("%", "")))
+                    except:
+                        percentage = 0
+                else:
+                    percentage = 0
+
+            speed_str = d.get("_speed_str", "")
+
+            self.progress_update.emit(percentage, speed_str)
+        elif d["status"] == "finished":
+            filename = os.path.basename(d["filename"])
+            self.download_finished.emit(filename)
+
+    # # Designed by Anthropic Claude AI
+    def start_download(self):
+        self.download_thread = QThread()
+        self.worker = DownloadWorker(self)
+        self.worker.moveToThread(self.download_thread)
+
+        # Connect worker signals to parent signals
+        self.worker.progress_update.connect(self.progress_update)
+        self.worker.status_update.connect(self.status_update)
+        self.worker.download_error.connect(self.download_error)
+        self.worker.download_finished.connect(self.download_finished)
+
+        # Connect thread started signal to worker's run method
+        self.download_thread.started.connect(self.worker.run)
+
+        # Connect cleanup signals
+        self.worker.download_finished.connect(self.download_thread.quit)
+        self.worker.download_error.connect(self.download_thread.quit)
+        self.download_thread.finished.connect(self.download_thread.deleteLater)
+        self.download_thread.finished.connect(self.worker.deleteLater)
+
+        self.download_thread.start()
+
+    def download_video(
+        self, progress_signal, status_signal, finished_signal, error_signal
+    ):
         if self.website == "ivysilani":
+            status_signal.emit("Získávám odkaz na video z iVysílání...")
             video_url = self.get_mpd_from_ivysilani()
+            if not video_url:
+                error_signal.emit("Nepodařilo se získat odkaz na video z iVysílání")
+                return
         else:
             video_url = self.url
 
@@ -104,7 +193,11 @@ class Downloader:
             self.download_dir = os.getcwd()
 
         if video_url:
-            ytdl_opts = {"outtmpl": f"{self.download_dir}/%(title)s.%(ext)s"}
+            status_signal.emit("Začínám stahování...")
+            ytdl_opts = {
+                "outtmpl": f"{self.download_dir}/%(title)s.%(ext)s",
+                "progress_hooks": [self.progress_hook],
+            }
             with YoutubeDL(ytdl_opts) as ydl:
                 ydl.download(video_url)
         else:
