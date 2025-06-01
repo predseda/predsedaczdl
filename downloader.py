@@ -3,7 +3,6 @@
 from yt_dlp import YoutubeDL
 from playwright.sync_api import sync_playwright
 
-import json
 import logging
 import subprocess
 import sys
