@@ -5,6 +5,7 @@ from playwright.sync_api import sync_playwright
 
 import json
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,12 @@ class Downloader:
 
     def resolve_website(self):
         if "ceskatelevize.cz" in self.url:
-            self.website = "ivysilani"
+            return "ivysilani"
         elif "youtube.com" in self.url:
-            self.website = "youtube"
+            return "youtube"
         else:
-            self.website = None
-
-        if self.website not in self.supported_websites:
             logger.error(f"Downloading from {self.url} is not supported.")
+            return None
 
     def get_mpd_from_ivysilani(self):
         video_urls = []
@@ -70,8 +69,6 @@ class Downloader:
             return download_url
 
     def download_video(self):
-        print(f"url = {self.url}")
-        print(f"website = {self.website}")
         if self.website == "ivysilani":
             video_url = self.get_mpd_from_ivysilani()
         else:
