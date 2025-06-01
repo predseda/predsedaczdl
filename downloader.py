@@ -28,7 +28,7 @@ class Downloader:
             self.website = None
 
         if self.website not in self.supported_websites:
-            logger.error(f"Stahování z {self.url} není podporováno.")
+            logger.error(f"Downloading from {self.url} is not supported.")
 
     def get_mpd_from_ivysilani(self):
         video_urls = []
