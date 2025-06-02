@@ -97,7 +97,9 @@ class Downloader(QObject):
     def get_mpd_from_ivysilani(self):
         video_urls = []
         with sync_playwright() as p:
-            browser = p.firefox.launch(headless=False)  # Headless blocks playback!
+            # FIXME: Firefox ok on GNU/Linux, not working on Windows NT
+            #browser = p.firefox.launch(headless=False)  # Headless blocks playback!
+            browser = p.chromium.launch(headless=False)  # Headless blocks playback!
             context = browser.new_context()
             page = context.new_page()
 
