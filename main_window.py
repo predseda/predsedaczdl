@@ -9,6 +9,8 @@ class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
+        self.setWindowTitle("Predsedaczdl")
+
         self.urlLabel = QtWidgets.QLabel("Odkaz:")
         self.url = QtWidgets.QLineEdit()
         self.url.setPlaceholderText("Odkaz videa")
